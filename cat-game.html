@@ -7,21 +7,171 @@
     <style type="text/css">
         html, body {
             margin: 0;
-            height: 100%;
+            height: 99%;
         }
-        svg {
+        canvas {
             width: 100%;
             height: 100%;
         }
     </style>
+
+    <script type="text/javascript">
+
+        class Dot {
+            constructor(r, x = 0, y = 0, speed = 0, direction = 0) {
+                this.r = 0;
+                this.pos = {
+                    _x: 0,
+                    _y: 0,
+                    get x() {return this._x},
+                    get y() {return this._y}
+                };
+                this._speed = 0;
+                this._direction = 0;
+                this.vel = {
+                    _x: 0,
+                    _y: 0,
+                    get x() {return this._x},
+                    get y() {return this._y}
+                };
+
+                this.bounds = {
+                    x: {min: 0, max: window.innerWidth},
+                    y: {min: 0, max: window.innerHeight}
+                };
+
+                this.setR(r);
+                this.setX(x);
+                this.setY(y);
+                this.setSpeed(speed);
+                this.setDirection(this.toRadians(direction));
+            }
+
+            setR(r) {
+                this.r = r;
+                this.bounds = {
+                    x: {min: this.r, max: window.innerWidth - (this.r)},
+                    y: {min: this.r, max: window.innerHeight - (this.r)}
+                };
+            }
+            setX(x) {
+                this.pos._x = x;
+            }
+            setY(y) {
+                this.pos._y = y;
+            }
+            setSpeed(speed) {
+                this._speed = speed;
+                this.vel = {
+                    _x: speed*Math.cos(this._direction),
+                    _y: speed*Math.sin(this._direction)
+                }
+            }
+            setDirection(dir) {
+                this._direction = dir;
+                this.vel = {
+                    _x: this._speed*Math.cos(dir),
+                    _y: this._speed*Math.sin(dir)
+                };
+            }
+            toRadians(degrees) {
+                return degrees*Math.PI/180;
+            }
+            bounce(axis) {
+                let vx = this.vel.x;
+                let vy = this.vel.y;
+                if(axis === 'x') {
+                    vx *= -1;
+                }
+                else if(axis === 'y') {
+                    vy *= -1;
+                }
+                else {
+                    let ex = new Error(`cannot bounce about unknown axis ${axis}`);
+                    ex.name = 'InvalidBounceAxis';
+                    throw ex;
+                }
+
+                this.setDirection(Math.atan2(vy, vx));
+            }
+
+            advance(dt) {
+                let [x0, y0] = [this.pos.x, this.pos.y];
+                let [dx, dy] = [dt * this.vel.x, dt * this.vel.y];
+                let [x1, y1] = [x0 + dx, y0 + dy];
+
+                let [xmin, xmax] = []
+                if(x1 > window.innerWidth - (this.r / 2)) {
+                    let p = dx / (this.bounds.x.max);
+
+                }
+            }
+
+
+            paint(ctx) {
+                ctx.beginPath();
+                ctx.arc(this.pos.x, this.pos.y, this.r, this.r, 0, 0,
+                    2*Math.PI);
+                ctx.fillStyle = 'yellow';
+                ctx.fill();
+
+                return [
+                    {x: this.pos.x - this.r, y: this.pos.y - this.r},
+                    {x: this.pos.x + this.r, y: this.pos.y + this.r}
+                ];
+            }
+        }
+
+        function setCanvasSize() {
+            let canvas = document.getElementById('canvas');
+            let computed = window.getComputedStyle(canvas);
+            canvas.width = Number.parseFloat(computed.width.replace('px', ''));
+            canvas.height = Number.parseFloat(computed.height.replace('px', ''));
+        }
+        function paint() {
+
+            let width = window.lastRegion[1].x - window.lastRegion[0].x;
+            let height = window.lastRegion[1].y - window.lastRegion[0].y;
+            window.ctx.beginPath();
+            window.ctx.rect(window.lastRegion.x, window.lastRegion.y, width,
+                height);
+            window.ctx.fillStyle = 'blue';
+            window.ctx.fill();
+
+            window.lastRegion = window.dot.paint(window.ctx);
+        }
+        function animateDot(stamp) {
+            // window.requestAnimationFrame(animateDot);
+
+            let frameTime = (stamp - window.lastFrame)/1000;
+            window.lastFrame = stamp;
+            // if(window.frames % 100 === 0) {
+            //     // console.log(frameTime, stamp/window.frames);
+            // }
+
+            window.dot.advance(frameTime);
+            window.paint();
+        }
+        function main() {
+            setCanvasSize();
+
+            window.dot = new Dot(20, 250, 100, 150, -45);
+            window.lastRegion = [
+                {x: 0, y: 0},
+                {x: window.innerWidth, y: window.innerHeight}
+            ];
+
+            let canvas = document.getElementById('canvas');
+            window.ctx = canvas.getContext('2d');
+            window.lastFrame = performance.now();
+            window.requestAnimationFrame(animateDot);
+        }
+        document.addEventListener('DOMContentLoaded', main);
+    </script>
 </head>
 <body>
 
-    <svg id="svg" version="1.1" baseProfile="full" xmlns="http://www.w3.org/2000/svg">
-
-        <circle r="25" cx="250" cy="100" fill="blue"></circle>
-
-    </svg>
+    <canvas id="canvas"></canvas>
 
 </body>
 </html>
