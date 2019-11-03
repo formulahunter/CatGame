@@ -18,16 +18,16 @@
     <script type="text/javascript">
 
         class Dot {
-            constructor(r, x = 0, y = 0, speed = 0, direction = 0) {
-                this.r = 0;
+            constructor(r = 0, x = 0, y = 0, speed = 0, direction = 0) {
+                this.r = r;
                 this.pos = {
-                    _x: 0,
-                    _y: 0,
+                    _x: x,
+                    _y: y,
                     get x() {return this._x},
                     get y() {return this._y}
                 };
-                this._speed = 0;
-                this._direction = 0;
+                this._speed = speed;
+                this._direction = this.toRadians(direction);
                 this.vel = {
                     _x: 0,
                     _y: 0,
@@ -62,17 +62,13 @@
             }
             setSpeed(speed) {
                 this._speed = speed;
-                this.vel = {
-                    _x: speed*Math.cos(this._direction),
-                    _y: speed*Math.sin(this._direction)
-                }
+                this.vel._x = speed*Math.cos(this._direction);
+                this.vel._y = speed*Math.sin(this._direction);
             }
             setDirection(dir) {
                 this._direction = dir;
-                this.vel = {
-                    _x: this._speed*Math.cos(dir),
-                    _y: this._speed*Math.sin(dir)
-                };
+                this.vel._x = this._speed*Math.cos(dir);
+                this.vel._y = this._speed*Math.sin(dir);
             }
             toRadians(degrees) {
                 return degrees*Math.PI/180;
@@ -100,11 +96,30 @@
                 let [dx, dy] = [dt * this.vel.x, dt * this.vel.y];
                 let [x1, y1] = [x0 + dx, y0 + dy];
 
-                let [xmin, xmax] = []
-                if(x1 > window.innerWidth - (this.r / 2)) {
-                    let p = dx / (this.bounds.x.max);
-
+                if(x1 > this.bounds.x.max) {
+                    let p = (x1 - this.bounds.x.max) / dx;
+                    x1 = this.bounds.x.max - dx * (1 - p);
+                    this.bounce('x');
                 }
+                else if(x1 < this.bounds.x.min) {
+                    let p = (x1 - this.bounds.x.min) / dx;
+                    x1 = this.bounds.x.min + dx * (1 - p);
+                    this.bounce('x');
+                }
+
+                if(y1 > this.bounds.y.max) {
+                    let p = (y1 - this.bounds.y.max) / dy;
+                    y1 = this.bounds.y.max - dy * (1 - p);
+                    this.bounce('y');
+                }
+                else if(y1 < this.bounds.y.min) {
+                    let p = (y1 - this.bounds.y.min) / dy;
+                    y1 = this.bounds.y.min + dy * (1 - p);
+                    this.bounce('y');
+                }
+
+                this.setX(x1);
+                this.setY(y1);
             }
 
 
@@ -141,7 +156,7 @@
             window.lastRegion = window.dot.paint(window.ctx);
         }
         function animateDot(stamp) {
-            // window.requestAnimationFrame(animateDot);
+            window.frameRequest = window.requestAnimationFrame(animateDot);
 
             let frameTime = (stamp - window.lastFrame)/1000;
             window.lastFrame = stamp;
@@ -162,9 +177,20 @@
             ];
 
             let canvas = document.getElementById('canvas');
+            canvas.addEventListener('click', () => {
+                if(window.frameRequest === false) {
+                    window.frameRequest =
+                        window.requestAnimationFrame(animateDot);
+                }
+                else {
+                    window.cancelAnimationFrame(window.frameRequest);
+                    window.frameRequest = false;
+                }
+            });
+
             window.ctx = canvas.getContext('2d');
             window.lastFrame = performance.now();
-            window.requestAnimationFrame(animateDot);
+            window.frameRequest = window.requestAnimationFrame(animateDot);
         }
         document.addEventListener('DOMContentLoaded', main);
     </script>
