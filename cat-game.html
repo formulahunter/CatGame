@@ -131,8 +131,8 @@
                 ctx.fill();
 
                 return [
-                    {x: this.pos.x - this.r, y: this.pos.y - this.r},
-                    {x: this.pos.x + this.r, y: this.pos.y + this.r}
+                    {x: this.pos.x - this.r - 1, y: this.pos.y - this.r - 1},
+                    {x: this.pos.x + this.r + 1, y: this.pos.y + this.r + 1}
                 ];
             }
         }
@@ -148,8 +148,8 @@
             let width = window.lastRegion[1].x - window.lastRegion[0].x;
             let height = window.lastRegion[1].y - window.lastRegion[0].y;
             window.ctx.beginPath();
-            window.ctx.rect(window.lastRegion.x, window.lastRegion.y, width,
-                height);
+            window.ctx.rect(window.lastRegion[0].x, window.lastRegion[0].y,
+                width, height);
             window.ctx.fillStyle = 'blue';
             window.ctx.fill();
 
