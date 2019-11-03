@@ -7,7 +7,8 @@
     <style type="text/css">
         html, body {
             margin: 0;
-            height: 99%;
+            height: 100%;
+            background-color: black;
         }
         canvas {
             width: 100%;
@@ -17,6 +18,8 @@
 
     <script type="text/javascript">
 
+        const BACKGROUND_COLOR = 'midnightblue';
+        const DOT_COLOR = 'gold';
         class Dot {
             constructor(r = 0, x = 0, y = 0, speed = 0, direction = 0) {
                 this.r = r;
@@ -37,7 +40,7 @@
 
                 this.bounds = {
                     x: {min: 0, max: window.innerWidth},
-                    y: {min: 0, max: window.innerHeight}
+                    y: {min: 0, max: window.innerHeight - 5}
                 };
 
                 this.setR(r);
@@ -51,7 +54,7 @@
                 this.r = r;
                 this.bounds = {
                     x: {min: this.r, max: window.innerWidth - (this.r)},
-                    y: {min: this.r, max: window.innerHeight - (this.r)}
+                    y: {min: this.r, max: window.innerHeight - (this.r) - 5}
                 };
             }
             setX(x) {
@@ -127,7 +130,7 @@
                 ctx.beginPath();
                 ctx.arc(this.pos.x, this.pos.y, this.r, this.r, 0, 0,
                     2*Math.PI);
-                ctx.fillStyle = 'yellow';
+                ctx.fillStyle = DOT_COLOR;
                 ctx.fill();
 
                 return [
@@ -137,23 +140,29 @@
             }
         }
 
-        function setCanvasSize() {
+        function paintBG(ctx, x = 0, y = 0,
+                         w = window.innerWidth, h = window.innerHeight) {
+            ctx.beginPath();
+            ctx.rect(x, y, w, h);
+            ctx.fillStyle = BACKGROUND_COLOR;
+            ctx.fill();
+        }
+        function resetCanvas() {
             let canvas = document.getElementById('canvas');
             let computed = window.getComputedStyle(canvas);
             canvas.width = Number.parseFloat(computed.width.replace('px', ''));
             canvas.height = Number.parseFloat(computed.height.replace('px', ''));
+
+            paintBG(window.ctx);
         }
-        function paint() {
+        function paint(ctx) {
 
             let width = window.lastRegion[1].x - window.lastRegion[0].x;
             let height = window.lastRegion[1].y - window.lastRegion[0].y;
-            window.ctx.beginPath();
-            window.ctx.rect(window.lastRegion[0].x, window.lastRegion[0].y,
-                width, height);
-            window.ctx.fillStyle = 'blue';
-            window.ctx.fill();
+            paintBG(window.ctx, window.lastRegion[0].x,window.lastRegion[0].y,
+                    width, height);
 
-            window.lastRegion = window.dot.paint(window.ctx);
+            window.lastRegion = window.dot.paint(ctx);
         }
         function animateDot(stamp) {
             window.frameRequest = window.requestAnimationFrame(animateDot);
@@ -165,16 +174,27 @@
             // }
 
             window.dot.advance(frameTime);
-            window.paint();
+            window.paint(window.ctx);
         }
         function main() {
-            setCanvasSize();
 
-            window.dot = new Dot(20, 250, 100, 150, -45);
-            window.lastRegion = [
-                {x: 0, y: 0},
-                {x: window.innerWidth, y: window.innerHeight}
-            ];
+            let computed = window.getComputedStyle(document.body);
+            let width;
+            let newWidth;
+            let height;
+            do {
+                width = Number.parseFloat(computed.width.replace('px', ''));
+                height = Number.parseFloat(computed.height.replace('px', ''));
+                document.body.style.height = `${height - 1}px`;
+
+                computed = window.getComputedStyle(document.body);
+                if(height < 300) {
+                    break;
+                }
+
+                newWidth = Number.parseFloat(computed.width.replace('px', ''));
+
+            } while(newWidth - width === 0);
 
             let canvas = document.getElementById('canvas');
             canvas.addEventListener('click', () => {
@@ -189,6 +209,15 @@
             });
 
             window.ctx = canvas.getContext('2d');
+            resetCanvas();
+            window.addEventListener('resize', resetCanvas);
+
+            window.dot = new Dot(20, 250, 100, 150, -45);
+            window.lastRegion = [
+                {x: 0, y: 0},
+                {x: window.innerWidth, y: window.innerHeight}
+            ];
+
             window.lastFrame = performance.now();
             window.frameRequest = window.requestAnimationFrame(animateDot);
         }
