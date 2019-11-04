@@ -18,6 +18,53 @@
 
     <script type="text/javascript">
 
+        /* *********    CONFIGURATION    ************/
+
+        /* *********    DIFFICULTY    ************/
+
+        /** Accuracy configuration based on proximity of a `touch` event to the
+         *  dot
+         *
+         * May make the game more engaging for less-coordinated cats
+         *
+         * Consider setting the dot's size as well - lower accuracy => larger
+         * radius
+         *
+         * @type {number}
+         */
+        const TOUCH_ACCURACY = 50;
+        /** Dot size (px)
+         * May be used along with touch accuracy to tailor the game for more
+         * or less coordinated cats
+         *
+         * @type {number}
+         */
+        const RADIUS = 20;
+
+        /* *********    MOTION    ************/
+
+        /** Initial speed (px/s)
+         * Set the initial motion fast enough to draw attention but not so fast
+         * to frighten the cat
+         *
+         * @type {number}
+         */
+        const INITIAL_SPEED = 1000;
+        /** Maximum speed (px/s)
+         * Caps the dot's speed to prevent disorientation
+         *
+         * @type {number}
+         */
+        const MAXIMUM_SPEED = 5000;
+        /** Friction configuration - factor used to adjust speed for each frame
+         * Slows the dot after it is hit
+         *
+         * @type {number}
+         */
+        const FRICTION_COEFFICIENT = 0.01;
+
+        /* *********    APPEARANCE    ************/
+
         /** The canvas background color
          *
          * @type {string<CSS<color>>}
@@ -28,6 +75,14 @@
          * @type {string<CSS<color>>}
          */
         const DOT_COLOR = 'gold';
+
+        /* *********    PERFORMANCE    ************/
+
+        /** Minimum speed before arbitrarily set to 0 (px/s)
+         *
+         * @type {number}
+         */
+        const MINIMUM_SPEED = 0.5;
 
         /** The `Dot` class represents a moving dot on the canvas in terms of
          *  its size, position, speed, direction, and instructions for painting
@@ -137,6 +192,83 @@
                 this.vel._y = this._speed*Math.sin(dir);
             }
 
+            /** Respond to a "hit" event as if a spring were placed at the event
+             *  position - the "force" is determined by the "compression" of the
+             *  spring and affected in the direction of the displacement between
+             *  the event and the dot
+             *
+             * @param {TouchEvent} ev - event triggering this handler
+             */
+            hit(ev) {
+
+                ev.stopPropagation();
+                ev.preventDefault();
+                // console.log(ev);
+
+                //  Cancel pending animation frames and pause the animation
+                //  while calculating new parameters
+                if(window.frameRequest !== false) {
+                    window.cancelAnimationFrame(window.frameRequest);
+                    window.frameRequest = false;
+                }
+
+                //  Draw a dot for debugging
+                window.ctx.beginPath();
+                window.ctx.ellipse(ev.clientX, ev.clientY, 5, 5, 0, 0,
+                    2*Math.PI);
+                window.ctx.fillStyle = 'black';
+                window.ctx.fill();
+
+                //  Get vector displacement from the event point (touch or click
+                //  location) to the dot
+                //  Find the magnitude of displacement (net distance)
+                let [dx, dy] = [
+                    this.pos.x - ev.clientX,
+                    this.pos.y - ev.clientY
+                ];
+                let distance = Math.sqrt(dx ** 2 + dy ** 2);
+
+                //  Calculate a "force" proportional to the distance
+                let force = Math.max(MAXIMUM_SPEED / 2 *
+                    (TOUCH_ACCURACY - distance)/TOUCH_ACCURACY, 0);
+
+                //  Convert dx & dy to new frame of reference u, v
+                //  v is parallel to displacement between dot & event
+                //  u is normal to v
+                //  if v is positive (up) from event -> dot, u is positive to the right
+                //  theta is the angle between +y and +v measured from the event point
+                let theta = Math.atan2(dy, dx) - Math.PI;
+
+                //  Now we can adjust the dot's velocity with the "spring" force
+                //  by transforming the velocity components to the (u,v) basis
+                //  This transform is valid for simple *rotation* of dx, vx, dy,
+                //  and vy, but not for any absolute coordinates (x, y)
+                let [vx, vy] = [this.vel.x, this.vel.y];
+                let [vu, vv] = [
+                    vx * Math.cos(theta) + vy * Math.sin(theta),
+                    vy * Math.cos(theta) + vx * Math.sin(theta)
+                ];
+
+                //  Thanks to the (x,y) -> (u,v) transform, the force will act
+                //  exclusively in the +v direction
+                vv += force;
+
+                //  Now reverse the transformation back to (x,y) basis
+                [vx, vy] = [
+                    vu * Math.cos(-theta) + vv * Math.sin(-theta),
+                    vv * Math.cos(-theta) + vu * Math.sin(-theta)
+                ];
+
+                //  Convert to direction & speed and assign the new values
+                let dir = Math.atan2(vy, vx);
+                let speed = Math.sqrt(vx ** 2 + vy **2);
+                this.setDirection(dir);
+                this.setSpeed(speed);
+
+                // Resume the animation
+                window.frameRequest = window.requestAnimationFrame(animate);
+            }
+
             /** Utility method converting degrees to radians
              *
              * @param {number} degrees - angle to convert (degrees)
@@ -174,13 +306,28 @@
             }
 
             /** Advance the dot by one "frame" given the length of time
-             * elapsed since the previous frame
+             *  elapsed since the previous frame
+             *
+             * Gradually decelerate the dot and keep it within its position and
+             * speed bounds
              *
              * @param {DOMHighResTimeStamp} dt - the precise length of
              *        time, in ms, elapsed since the las frame (provided by
              *        `window.requestAnimationFrame()`
              */
             advance(dt) {
+
+                //  Simulate "friction" by gradually slowing the dot's motion
+                let newSpeed = this._speed - (FRICTION_COEFFICIENT * this._speed);
+                //  Keep speed within configured limits
+                if(newSpeed > MAXIMUM_SPEED) {
+                    newSpeed = MAXIMUM_SPEED;
+                }
+                else if(newSpeed < MINIMUM_SPEED) {
+                    newSpeed = 0;
+                }
+                this.setSpeed(newSpeed);
+
                 //  Calculate tentative new position as the current position
                 //  plus the change in position over the given time interval
                 //  `dt`
@@ -285,6 +432,7 @@
          */
         function animate(stamp) {
             window.frameRequest = window.requestAnimationFrame(animate);
+            console.log(stamp);
 
             let frameTime = (stamp - window.lastFrame)/1000;
             window.lastFrame = stamp;
@@ -292,7 +440,15 @@
             //     // console.log(frameTime, stamp/window.frames);
             // }
 
+            //  Re-calculate dot's motion parameters & suspend animation while
+            //  its speed is zero (re-started when the dot is hit() and thereby
+            //  set into motion again)
             window.dot.advance(frameTime);
+            if(dot._speed === 0) {
+                window.cancelAnimationFrame(window.frameRequest);
+            }
+
+            //  Paint the current frame on the canvas
             window.paint(window.ctx);
         }
 
@@ -325,26 +481,29 @@
             removeScrollBar();
 
             let canvas = document.getElementById('canvas');
-            canvas.addEventListener('click', () => {
-                if(window.frameRequest === false) {
-                    window.frameRequest =
-                        window.requestAnimationFrame(animate);
-                }
-                else {
-                    window.cancelAnimationFrame(window.frameRequest);
-                    window.frameRequest = false;
-                }
-            });
+            // canvas.addEventListener('click', () => {
+            //     if(window.frameRequest === false) {
+            //         window.frameRequest =
+            //             window.requestAnimationFrame(animate);
+            //     }
+            //     else {
+            //         window.cancelAnimationFrame(window.frameRequest);
+            //         window.frameRequest = false;
+            //     }
+            // });
 
             window.ctx = canvas.getContext('2d');
             resetCanvas();
             window.addEventListener('resize', resetCanvas);
 
-            window.dot = new Dot(20, 250, 100, 150, -45);
+            window.dot = new Dot(RADIUS, 250, 100, INITIAL_SPEED, -45);
             window.lastRegion = [
                 {x: 0, y: 0},
                 {x: window.innerWidth, y: window.innerHeight}
             ];
+
+            canvas.addEventListener('mousedown',
+                window.dot.hit.bind(window.dot));
 
             window.lastFrame = performance.now();
             window.frameRequest = window.requestAnimationFrame(animate);
