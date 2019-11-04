@@ -39,7 +39,7 @@
          *
          * @type {number}
          */
-        const RADIUS = 20;
+        const RADIUS = 35;
 
         /* *********    MOTION    ************/
 
@@ -212,12 +212,11 @@
                     window.frameRequest = false;
                 }
 
+                console.debug(`mouse click at (${ev.clientX}, ${ev.clientY})`);
+                console.debug(`dot position at (${this.pos.x}, ${this.pos.y})`);
+
                 //  Draw a dot for debugging
-                window.ctx.beginPath();
-                window.ctx.ellipse(ev.clientX, ev.clientY, 5, 5, 0, 0,
-                    2*Math.PI);
-                window.ctx.fillStyle = 'black';
-                window.ctx.fill();
+                //drawPoint(window.ctx, ev.clientX, ev.clientY);
 
                 //  Get vector displacement from the event point (touch or click
                 //  location) to the dot
@@ -227,55 +226,82 @@
                     this.pos.y - ev.clientY
                 ];
                 let distance = Math.sqrt(dx ** 2 + dy ** 2);
+                console.debug(`displacement vector is \<${dx}, ${dy}>`);
+                console.debug(`net offset is ${distance}`);
+
+                //  Find displacement angle
+                //  theta is the angle between +x and +v measured from the event point
+                //  it needs to be positive (between 0 and 2*pi) due to the way
+                //  phi is defined
+                //  phi is the angle between +y and +v measured from the event point
+                //  equal to theta - pi/2
+                let theta = distance === 0 ? 0 : Math.atan2(dy, dx);
+                if(theta < 0) {
+                    theta += 2*Math.PI;
+                }
+                let phi = distance === 0 ? 0 : theta - Math.PI/2;
+                console.debug(`offset angle theta ${theta} radians, ${theta *
+                180 / Math.PI} degrees`);
+                console.debug(`displacement angle phi ${phi} radians, ${phi *
+                180 / Math.PI} degrees`);
 
                 //  Calculate a "force" proportional to the distance
+                //  force <= (MAXIMUM_SPEED / 2)
                 let force =
                     MAXIMUM_SPEED / 2 * (TOUCH_ACCURACY - distance)/TOUCH_ACCURACY;
+                console.debug(`calculated force is ${force}`);
 
                 //  Don't continue performing redundant calculations if there
                 //  will be no net effect on the dot
                 if(force < 0) {
-                    window.frameRequest = window.requestAnimationFrame(animate);
-                    return;
+                    force = 0;
+                    console.debug(`force has been overridden, now 0`);
+                    // window.frameRequest = window.requestAnimationFrame(animate);
+                    // return;
                 }
-
-                //  Convert dx & dy to new frame of reference u, v
-                //  v is parallel to displacement between dot & event
-                //  u is normal to v
-                //  if v is positive (up) from event -> dot, u is positive to the right
-                //  theta is the angle between +y and +v measured from the event point
-                let theta = distance === 0 ? 0 : Math.atan2(dy, dx) - Math.PI;
 
                 //  Now we can adjust the dot's velocity with the "spring" force
                 //  by transforming the velocity components to the (u,v) basis
+                //  v is parallel to displacement between dot & event
+                //  u is normal to v
+                //  if v is positive (up) from event -> dot, u is positive to the right
                 //  This transform is valid for simple *rotation* of dx, vx, dy,
                 //  and vy, but not for any absolute coordinates (x, y)
-                let [vx, vy] = [this.vel.x, this.vel.y];
+                let [vx0, vy0] = [this.vel.x, this.vel.y];
                 let [vu, vv] = [
-                    vx * Math.cos(theta) - vy * Math.sin(theta),
-                    vy * Math.cos(theta) + vx * Math.sin(theta)
+                    vx0 * Math.cos(-phi) - vy0 * Math.sin(-phi),
+                    vy0 * Math.cos(-phi) + vx0 * Math.sin(-phi)
                 ];
-                console.log(vx, vy);
-                console.log(vu, vv);
+                console.debug(`global velocity vector \<${vx0}, ${vy0}>`);
+                console.debug(`event velocity vector \<${vu}, ${vv}>`);
 
                 //  Illustrate calculated motion graphically
-                drawArrows(vx, vy, theta, vu, vv);
+                let [du, dv] = [
+                    dx * Math.cos(-phi) - dy * Math.sin(-phi),
+                    dy * Math.cos(-phi) + dx * Math.sin(-phi)
+                ];
 
                 //  Thanks to the (x,y) -> (u,v) transform, the force will act
                 //  exclusively in the +v direction
-                vv += force;
+                let vv1 = vv + force;
 
                 //  Now reverse the transformation back to (x,y) basis
-                [vx, vy] = [
-                    vu * Math.cos(-theta) - vv * Math.sin(-theta),
-                    vv * Math.cos(-theta) + vu * Math.sin(-theta)
+                let [vx1, vy1] = [
+                    vu * Math.cos(phi) - vv1 * Math.sin(phi),
+                    vv1 * Math.cos(phi) + vu * Math.sin(phi)
                 ];
 
                 //  Convert to direction & speed and assign the new values
-                let dir = Math.atan2(vy, vx);
-                let speed = Math.sqrt(vx ** 2 + vy **2);
-                this.setDirection(dir);
-                this.setSpeed(speed);
+                let dir = Math.atan2(vy1, vx1);
+                let speed = Math.sqrt(vx1 ** 2 + vy1 **2);
+                this.illustrateMotion({x: ev.clientX, y: ev.clientY},
+                    {x: dx, y: dy, u: du, v: dv, net: distance},
+                    {x: vx0, y: vy0, u: vu, v: vv, net: this._speed, dir:
+                        this._direction},
+                    {x: vx1, y: vy1, u: vu, v: vv1, net: speed, dir: dir},
+                    {t: theta, p: phi});
+                // this.setDirection(dir);
+                // this.setSpeed(speed);
 
                 // Resume the animation
                 // window.frameRequest = window.requestAnimationFrame(animate);
@@ -395,21 +421,161 @@
                     2*Math.PI);
                 ctx.fillStyle = DOT_COLOR;
                 ctx.fill();
+                ctx.fillStyle = '';
 
                 return [
                     {x: this.pos.x - this.r - 1, y: this.pos.y - this.r - 1},
                     {x: this.pos.x + this.r + 1, y: this.pos.y + this.r + 1}
                 ];
             }
+            illustrateMotion(mouse, d, v0, v1, angle) {
+
+                //  For easy access
+                let ctx = window.ctx;
+
+                //  Start with a blank canvas so multiple "hits" can be compared
+                resetCanvas();
+                paint(ctx);
+
+                ctx.translate(mouse.x, mouse.y);
+                ctx.rotate(angle.p);
+                let origin = ctx.getTransform();
+
+                //  Draw in-situ graph axes
+                //  Draw the displacement (v) axis
+                ctx.beginPath();
+                ctx.translate(0, -15);
+                arrow(ctx, 165);
+
+                //  Draw the normal (u) axis
+                ctx.setTransform(origin);
+                ctx.rotate(Math.PI / 2);
+                ctx.translate(0, -75);
+                arrow(ctx, 150);
+
+                ctx.strokeStyle = '#666666';
+                ctx.strokeWidth = '5';
+                ctx.stroke();
+                ctx.strokeStyle = '';
+                ctx.strokeWidth = '';
+
+
+                //  Draw velocity arrows with length from 0 to 10*TOUCH_ACCURACY
+                //  proportional to respective velocity component
+                let cv = 10 * TOUCH_ACCURACY / MAXIMUM_SPEED;
+                let vNorm0 = v0.net * cv;
+                // let [vx, vy] = [v0.x * cv, v0.y * cv];
+                ctx.moveTo(this.pos.x, this.pos.y);
+
+                //  Draw the dot's initial velocity vector
+                ctx.resetTransform();
+                ctx.translate(this.pos.x, this.pos.y);
+                ctx.rotate(-Math.PI / 2);   //  dir measured wrt x-axis
+                ctx.rotate(v0.dir);
+                ctx.beginPath();
+                arrow(ctx, vNorm0);
+
+                ctx.strokeStyle = 'forestgreen';
+                ctx.strokeWidth = 8;
+                ctx.stroke();
+                ctx.strokeStyle = '';
+                ctx.strokeWidth = '';
+
+                //  Draw the dot's final velocity vector
+                ctx.resetTransform();
+                ctx.translate(this.pos.x, this.pos.y);
+                ctx.rotate(-Math.PI / 2);   //  dir measured wrt x-axis
+                ctx.rotate(v1.dir);
+                ctx.beginPath();
+                arrow(ctx, v1.net * cv);
+
+                ctx.strokeStyle = 'limegreen';
+                ctx.strokeWidth = 8;
+                ctx.stroke();
+                ctx.strokeStyle = '';
+                ctx.strokeWidth = '';
+
+
+                //  Draw an independent (u,v) graph
+                //  Draw the displacement (v) axis
+                ctx.resetTransform();
+                ctx.translate(300, 450);
+                ctx.scale(1, -1);
+                origin = ctx.getTransform();
+                ctx.translate(0, -15);
+                ctx.beginPath();
+                arrow(ctx, 165);
+
+                //  Draw the normal (u) axis
+                ctx.setTransform(origin);
+                ctx.rotate(-Math.PI / 2);
+                ctx.translate(0, -75);
+                arrow(ctx, 150);
+
+                ctx.strokeStyle = '#666666';
+                ctx.strokeWidth = '5';
+                ctx.stroke();
+                ctx.strokeStyle = '';
+                ctx.strokeWidth = '';
+
+                //  Draw the initial velocity vector
+                ctx.setTransform(origin);
+                ctx.translate(d.u, d.v);
+                ctx.rotate(-Math.PI / 2);
+                ctx.rotate(v0.dir - angle.p);
+                ctx.beginPath();
+                arrow(ctx, vNorm0);
+
+                ctx.strokeStyle = 'forestgreen';
+                ctx.strokeWidth = 8;
+                ctx.stroke();
+                ctx.strokeStyle = '';
+                ctx.strokeWidth = '';
+
+                //  Draw the dot's final velocity vector
+                if(d.net < TOUCH_ACCURACY) {
+                    ctx.setTransform(origin);
+                    ctx.translate(d.u, d.v);
+                    ctx.rotate(-Math.PI / 2);
+                    ctx.rotate(v1.dir - angle.p);
+                    ctx.beginPath();
+                    arrow(ctx, v1.net * cv);
+
+                    ctx.strokeStyle = 'limegreen';
+                    ctx.strokeWidth = 8;
+                    ctx.stroke();
+                    ctx.strokeStyle = '';
+                    ctx.strokeWidth = '';
+                }
+
+
+                ctx.resetTransform();
+            }
         }
 
-        function drawArrows(vx, vy, theta, vu, vv) {
-            let v = Math.sqrt(vx**2 + vy**2);
-            [vx, vy] = [vx / v, vy / v];
 
-
+        function arrow(ctx, length = 100) {
+            ctx.moveTo(0, 0);
+            ctx.translate(0, length);
+            ctx.lineTo(0, 0);
+            arrowHead(ctx);
+        }
+        function arrowHead(ctx) {
+            ctx.rotate(150 * Math.PI / 180);
+            ctx.lineTo(0, 10);
+            ctx.moveTo(0, 0);
+            ctx.rotate(-300 * Math.PI / 180);
+            ctx.lineTo(0, 10);
         }
 
+        /** Draw a dot for debugging */
+        function drawPoint(ctx, x, y) {
+            ctx.beginPath();
+            ctx.ellipse(x, y, 5, 5, 0, 0, 2*Math.PI);
+            ctx.fillStyle = 'black';
+            ctx.fill();
+            ctx.fillStyle = '';
+        }
         /** Paint the canvas background given its 2d drawing context and
          *  optional position and size of the rectangle to be painted
          *  (defaults to the full size of the canvas)
