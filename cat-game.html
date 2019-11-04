@@ -18,19 +18,52 @@
 
     <script type="text/javascript">
 
+        /** The canvas background color
+         *
+         * @type {string<CSS<color>>}
+         */
         const BACKGROUND_COLOR = 'midnightblue';
+        /** The dot color
+         *
+         * @type {string<CSS<color>>}
+         */
         const DOT_COLOR = 'gold';
+
+        /** The `Dot` class represents a moving dot on the canvas in terms of
+         *  its size, position, speed, direction, and instructions for painting
+         *  to the canvas
+         */
         class Dot {
+            /** Constructs a new `Dot` instance with optional parameters (all
+             *  default to zero)
+             *
+             * @param {number} r - radius (px)
+             * @param x - initial x- position (px)
+             * @param y - initial y- position (px)
+             * @param speed - initial speed (px/s)
+             * @param direction - initial direction (degrees, ccw from +x-axis)
+             */
             constructor(r = 0, x = 0, y = 0, speed = 0, direction = 0) {
+                /** radius */
                 this.r = r;
+                /** position, with read-only coordinates (set using setX()
+                 *  and setY()
+                 */
                 this.pos = {
                     _x: x,
                     _y: y,
                     get x() {return this._x},
                     get y() {return this._y}
                 };
+                /** linear speed */
                 this._speed = speed;
+                /** direction in radians (note that the constructor takes its
+                 *  `direction` argument in units of degrees
+                 */
                 this._direction = this.toRadians(direction);
+                /** velocity, as the `_speed` property broken into x- and y-
+                 *  directional components
+                 */
                 this.vel = {
                     _x: 0,
                     _y: 0,
@@ -38,11 +71,17 @@
                     get y() {return this._y}
                 };
 
+                /** limits (upper and lower) on the dot's position in both x-
+                 * and y-directions
+                 */
                 this.bounds = {
                     x: {min: 0, max: window.innerWidth},
                     y: {min: 0, max: window.innerHeight - 5}
                 };
 
+                //  Most properties have been set manually at this point, but
+                //  use the setter methods anyway to ensure that everything is
+                //  properly configured
                 this.setR(r);
                 this.setX(x);
                 this.setY(y);
@@ -50,6 +89,11 @@
                 this.setDirection(this.toRadians(direction));
             }
 
+            /** Set the radius, making sure that the bounds are updated
+             *  accordingly
+             *
+             * @param {number} r - radius (px)
+             */
             setR(r) {
                 this.r = r;
                 this.bounds = {
@@ -57,25 +101,60 @@
                     y: {min: this.r, max: window.innerHeight - (this.r) - 5}
                 };
             }
+            /** Set the x- position
+             *
+             * @param {number} x - x-position (px)
+             */
             setX(x) {
                 this.pos._x = x;
             }
+            /** Set the y- position
+             *
+             * @param {number} y - y-position (px)
+             */
             setY(y) {
                 this.pos._y = y;
             }
+
+            /** Set the peed, with necessary updates to the x- and y-
+             *  velocity components
+             *
+             * @param {number} speed - scalar speed (px/s)
+             */
             setSpeed(speed) {
                 this._speed = speed;
                 this.vel._x = speed*Math.cos(this._direction);
                 this.vel._y = speed*Math.sin(this._direction);
             }
+            /** Set the direction of motion, with necessary updates to the x-
+             *  and y- velocity components
+             *
+             * @param {number} dir - direction (radians)
+             */
             setDirection(dir) {
                 this._direction = dir;
                 this.vel._x = this._speed*Math.cos(dir);
                 this.vel._y = this._speed*Math.sin(dir);
             }
+
+            /** Utility method converting degrees to radians
+             *
+             * @param {number} degrees - angle to convert (degrees)
+             * @return {number} converted angle (radians)
+             */
             toRadians(degrees) {
                 return degrees*Math.PI/180;
             }
+
+            /** Affect a "bounce" off of a wall oriented in the given direction
+             *  (e.g. `bounce('x')` causes the dot to reverse its x-direction
+             *  but maintain its y-direction)
+             *  Changes both direction and velocity accordingly
+             *
+             * @param {'x'|'y'} axis - which axis to "bounce" about
+             * @throws {Error} 'InvalidBounceAxis' if `axis` is neither "x" nor
+             *         "y"
+             */
             bounce(axis) {
                 let vx = this.vel.x;
                 let vy = this.vel.y;
@@ -94,11 +173,23 @@
                 this.setDirection(Math.atan2(vy, vx));
             }
 
+            /** Advance the dot by one "frame" given the length of time
+             * elapsed since the previous frame
+             *
+             * @param {DOMHighResTimeStamp} dt - the precise length of
+             *        time, in ms, elapsed since the las frame (provided by
+             *        `window.requestAnimationFrame()`
+             */
             advance(dt) {
+                //  Calculate tentative new position as the current position
+                //  plus the change in position over the given time interval
+                //  `dt`
                 let [x0, y0] = [this.pos.x, this.pos.y];
                 let [dx, dy] = [dt * this.vel.x, dt * this.vel.y];
                 let [x1, y1] = [x0 + dx, y0 + dy];
 
+                //  Check the x-bounds (min and max) and, if exceeded, "bounce"
+                //  off of the bound and re-calculate `x1` by interpolating `dx`
                 if(x1 > this.bounds.x.max) {
                     let p = (x1 - this.bounds.x.max) / dx;
                     x1 = this.bounds.x.max - dx * (1 - p);
@@ -110,6 +201,8 @@
                     this.bounce('x');
                 }
 
+                //  Check the y-bounds (min and max) and, if exceeded, "bounce"
+                //  off of the bound and re-calculate `y1` by interpolating `dy`
                 if(y1 > this.bounds.y.max) {
                     let p = (y1 - this.bounds.y.max) / dy;
                     y1 = this.bounds.y.max - dy * (1 - p);
@@ -121,14 +214,25 @@
                     this.bounce('y');
                 }
 
+                //  Set the new x- and y-coordinates
                 this.setX(x1);
                 this.setY(y1);
             }
 
 
+            /** Paint the dot using its defined radius and position
+             *
+             * @param {CanvasRenderingContext2D} ctx - the drawing context on
+             *        which to paint
+             * @return {{x:{number}, y:{number}}[]} - an array of two
+             *         coordinate pairs as the top-left and bottom-right corners
+             *         of the affected region of the canvas (used in the
+             *         subsequent frame to "erase" the current dot before
+             *         painting the next one)
+             */
             paint(ctx) {
                 ctx.beginPath();
-                ctx.arc(this.pos.x, this.pos.y, this.r, this.r, 0, 0,
+                ctx.ellipse(this.pos.x, this.pos.y, this.r, this.r, 0, 0,
                     2*Math.PI);
                 ctx.fillStyle = DOT_COLOR;
                 ctx.fill();
@@ -140,6 +244,10 @@
             }
         }
 
+        /** Paint the canvas background given its 2d drawing context and
+         *  optional position and size of the rectangle to be painted
+         *  (defaults to the full size of the canvas)
+         */
         function paintBG(ctx, x = 0, y = 0,
                          w = window.innerWidth, h = window.innerHeight) {
             ctx.beginPath();
@@ -147,6 +255,9 @@
             ctx.fillStyle = BACKGROUND_COLOR;
             ctx.fill();
         }
+        /** Reset the canvas by resetting its size (in case the window was
+         *  resized) and re-painting the entire background
+         */
         function resetCanvas() {
             let canvas = document.getElementById('canvas');
             let computed = window.getComputedStyle(canvas);
@@ -155,6 +266,11 @@
 
             paintBG(window.ctx);
         }
+        /** Paint all animated components
+         *  By using the region parameters returned from `dot.paint()`, this
+         *  function avoids painting the entire canvas and instead only
+         *  modifies the affected areas
+         */
         function paint(ctx) {
 
             let width = window.lastRegion[1].x - window.lastRegion[0].x;
@@ -164,8 +280,11 @@
 
             window.lastRegion = window.dot.paint(ctx);
         }
-        function animateDot(stamp) {
-            window.frameRequest = window.requestAnimationFrame(animateDot);
+        /** Re-calculate parameters of all animated components and invoke the
+         *  global paint() function
+         */
+        function animate(stamp) {
+            window.frameRequest = window.requestAnimationFrame(animate);
 
             let frameTime = (stamp - window.lastFrame)/1000;
             window.lastFrame = stamp;
@@ -176,8 +295,11 @@
             window.dot.advance(frameTime);
             window.paint(window.ctx);
         }
-        function main() {
 
+        /** Incrementally reduce the size of the <body> until it's small enough
+         *  that the scrollbar disappears.
+         */
+        function removeScrollBar() {
             let computed = window.getComputedStyle(document.body);
             let width;
             let newWidth;
@@ -195,12 +317,18 @@
                 newWidth = Number.parseFloat(computed.width.replace('px', ''));
 
             } while(newWidth - width === 0);
+        }
+
+        /** Run initial setup/configuration of global scope variables & DOM */
+        function main() {
+
+            removeScrollBar();
 
             let canvas = document.getElementById('canvas');
             canvas.addEventListener('click', () => {
                 if(window.frameRequest === false) {
                     window.frameRequest =
-                        window.requestAnimationFrame(animateDot);
+                        window.requestAnimationFrame(animate);
                 }
                 else {
                     window.cancelAnimationFrame(window.frameRequest);
@@ -219,7 +347,7 @@
             ];
 
             window.lastFrame = performance.now();
-            window.frameRequest = window.requestAnimationFrame(animateDot);
+            window.frameRequest = window.requestAnimationFrame(animate);
         }
         document.addEventListener('DOMContentLoaded', main);
     </script>
