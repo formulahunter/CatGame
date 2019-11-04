@@ -212,8 +212,8 @@
                     window.frameRequest = false;
                 }
 
-                console.debug(`mouse click at (${ev.clientX}, ${ev.clientY})`);
-                console.debug(`dot position at (${this.pos.x}, ${this.pos.y})`);
+                // console.debug(`mouse click at (${ev.clientX}, ${ev.clientY})`);
+                // console.debug(`dot position at (${this.pos.x}, ${this.pos.y})`);
 
                 //  Draw a dot for debugging
                 //drawPoint(window.ctx, ev.clientX, ev.clientY);
@@ -226,8 +226,8 @@
                     this.pos.y - ev.clientY
                 ];
                 let distance = Math.sqrt(dx ** 2 + dy ** 2);
-                console.debug(`displacement vector is \<${dx}, ${dy}>`);
-                console.debug(`net offset is ${distance}`);
+                // console.debug(`displacement vector is \<${dx}, ${dy}>`);
+                // console.debug(`net offset is ${distance}`);
 
                 //  Find displacement angle
                 //  theta is the angle between +x and +v measured from the event point
@@ -240,24 +240,24 @@
                     theta += 2*Math.PI;
                 }
                 let phi = distance === 0 ? 0 : theta - Math.PI/2;
-                console.debug(`offset angle theta ${theta} radians, ${theta *
-                180 / Math.PI} degrees`);
-                console.debug(`displacement angle phi ${phi} radians, ${phi *
-                180 / Math.PI} degrees`);
+                // console.debug(`offset angle theta ${theta} radians, ${theta *
+                // 180 / Math.PI} degrees`);
+                // console.debug(`displacement angle phi ${phi} radians, ${phi *
+                // 180 / Math.PI} degrees`);
 
                 //  Calculate a "force" proportional to the distance
                 //  force <= (MAXIMUM_SPEED / 2)
                 let force =
                     MAXIMUM_SPEED / 2 * (TOUCH_ACCURACY - distance)/TOUCH_ACCURACY;
-                console.debug(`calculated force is ${force}`);
+                // console.debug(`calculated force is ${force}`);
 
                 //  Don't continue performing redundant calculations if there
                 //  will be no net effect on the dot
                 if(force < 0) {
-                    force = 0;
-                    console.debug(`force has been overridden, now 0`);
-                    // window.frameRequest = window.requestAnimationFrame(animate);
-                    // return;
+                    // force = 0;
+                    // console.debug(`force has been overridden, now 0`);
+                    window.frameRequest = window.requestAnimationFrame(animate);
+                    return;
                 }
 
                 //  Now we can adjust the dot's velocity with the "spring" force
@@ -272,14 +272,14 @@
                     vx0 * Math.cos(-phi) - vy0 * Math.sin(-phi),
                     vy0 * Math.cos(-phi) + vx0 * Math.sin(-phi)
                 ];
-                console.debug(`global velocity vector \<${vx0}, ${vy0}>`);
-                console.debug(`event velocity vector \<${vu}, ${vv}>`);
+                // console.debug(`global velocity vector \<${vx0}, ${vy0}>`);
+                // console.debug(`event velocity vector \<${vu}, ${vv}>`);
 
                 //  Illustrate calculated motion graphically
-                let [du, dv] = [
-                    dx * Math.cos(-phi) - dy * Math.sin(-phi),
-                    dy * Math.cos(-phi) + dx * Math.sin(-phi)
-                ];
+                // let [du, dv] = [
+                //     dx * Math.cos(-phi) - dy * Math.sin(-phi),
+                //     dy * Math.cos(-phi) + dx * Math.sin(-phi)
+                // ];
 
                 //  Thanks to the (x,y) -> (u,v) transform, the force will act
                 //  exclusively in the +v direction
@@ -294,17 +294,17 @@
                 //  Convert to direction & speed and assign the new values
                 let dir = Math.atan2(vy1, vx1);
                 let speed = Math.sqrt(vx1 ** 2 + vy1 **2);
-                this.illustrateMotion({x: ev.clientX, y: ev.clientY},
-                    {x: dx, y: dy, u: du, v: dv, net: distance},
-                    {x: vx0, y: vy0, u: vu, v: vv, net: this._speed, dir:
-                        this._direction},
-                    {x: vx1, y: vy1, u: vu, v: vv1, net: speed, dir: dir},
-                    {t: theta, p: phi});
-                // this.setDirection(dir);
-                // this.setSpeed(speed);
+                // this.illustrateMotion({x: ev.clientX, y: ev.clientY},
+                //     {x: dx, y: dy, u: du, v: dv, net: distance},
+                //     {x: vx0, y: vy0, u: vu, v: vv, net: this._speed, dir:
+                //         this._direction},
+                //     {x: vx1, y: vy1, u: vu, v: vv1, net: speed, dir: dir},
+                //     {t: theta, p: phi});
+                this.setDirection(dir);
+                this.setSpeed(speed);
 
                 // Resume the animation
-                // window.frameRequest = window.requestAnimationFrame(animate);
+                window.frameRequest = window.requestAnimationFrame(animate);
             }
 
             /** Utility method converting degrees to radians
@@ -617,7 +617,7 @@
          */
         function animate(stamp) {
             window.frameRequest = window.requestAnimationFrame(animate);
-            console.log(stamp);
+            // console.log(stamp);
 
             let frameTime = (stamp - window.lastFrame)/1000;
             window.lastFrame = stamp;
