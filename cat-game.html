@@ -229,15 +229,22 @@
                 let distance = Math.sqrt(dx ** 2 + dy ** 2);
 
                 //  Calculate a "force" proportional to the distance
-                let force = Math.max(MAXIMUM_SPEED / 2 *
-                    (TOUCH_ACCURACY - distance)/TOUCH_ACCURACY, 0);
+                let force =
+                    MAXIMUM_SPEED / 2 * (TOUCH_ACCURACY - distance)/TOUCH_ACCURACY;
+
+                //  Don't continue performing redundant calculations if there
+                //  will be no net effect on the dot
+                if(force < 0) {
+                    window.frameRequest = window.requestAnimationFrame(animate);
+                    return;
+                }
 
                 //  Convert dx & dy to new frame of reference u, v
                 //  v is parallel to displacement between dot & event
                 //  u is normal to v
                 //  if v is positive (up) from event -> dot, u is positive to the right
                 //  theta is the angle between +y and +v measured from the event point
-                let theta = Math.atan2(dy, dx) - Math.PI;
+                let theta = distance === 0 ? 0 : Math.atan2(dy, dx) - Math.PI;
 
                 //  Now we can adjust the dot's velocity with the "spring" force
                 //  by transforming the velocity components to the (u,v) basis
@@ -245,9 +252,14 @@
                 //  and vy, but not for any absolute coordinates (x, y)
                 let [vx, vy] = [this.vel.x, this.vel.y];
                 let [vu, vv] = [
-                    vx * Math.cos(theta) + vy * Math.sin(theta),
+                    vx * Math.cos(theta) - vy * Math.sin(theta),
                     vy * Math.cos(theta) + vx * Math.sin(theta)
                 ];
+                console.log(vx, vy);
+                console.log(vu, vv);
+
+                //  Illustrate calculated motion graphically
+                drawArrows(vx, vy, theta, vu, vv);
 
                 //  Thanks to the (x,y) -> (u,v) transform, the force will act
                 //  exclusively in the +v direction
@@ -255,7 +267,7 @@
 
                 //  Now reverse the transformation back to (x,y) basis
                 [vx, vy] = [
-                    vu * Math.cos(-theta) + vv * Math.sin(-theta),
+                    vu * Math.cos(-theta) - vv * Math.sin(-theta),
                     vv * Math.cos(-theta) + vu * Math.sin(-theta)
                 ];
 
@@ -266,7 +278,7 @@
                 this.setSpeed(speed);
 
                 // Resume the animation
-                window.frameRequest = window.requestAnimationFrame(animate);
+                // window.frameRequest = window.requestAnimationFrame(animate);
             }
 
             /** Utility method converting degrees to radians
@@ -389,6 +401,13 @@
                     {x: this.pos.x + this.r + 1, y: this.pos.y + this.r + 1}
                 ];
             }
+        }
+
+        function drawArrows(vx, vy, theta, vu, vv) {
+            let v = Math.sqrt(vx**2 + vy**2);
+            [vx, vy] = [vx / v, vy / v];
+
+
         }
 
         /** Paint the canvas background given its 2d drawing context and
