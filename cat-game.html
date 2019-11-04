@@ -32,7 +32,7 @@
          *
          * @type {number}
          */
-        const TOUCH_ACCURACY = 50;
+        const TOUCH_ACCURACY = 100;
         /** Dot size (px)
          * May be used along with touch accuracy to tailor the game for more
          * or less coordinated cats
@@ -500,7 +500,7 @@
                 //  Draw the displacement (v) axis
                 ctx.resetTransform();
                 ctx.translate(300, 450);
-                ctx.scale(1, -1);
+                ctx.scale(-1, -1);
                 origin = ctx.getTransform();
                 ctx.translate(0, -15);
                 ctx.beginPath();
