@@ -122,13 +122,7 @@
                     get x() {return this._x},
                     get y() {return this._y}
                 };
-                /** linear speed */
-                this._speed = speed;
-                /** direction in radians (note that the constructor takes its
-                 *  `direction` argument in units of degrees
-                 */
-                this._direction = this.toRadians(direction);
-                /** velocity, as the `_speed` property broken into x- and y-
+                /** velocity, as the `speed` property broken into x- and y-
                  *  directional components
                  */
                 this.vel = {
@@ -155,6 +149,24 @@
                 this.setSpeed(speed);
                 this.setDirection(this.toRadians(direction));
             }
+
+            /** Get the scalar speed as the root sum squared of the x- and y-
+             *  velocity components
+             *
+             * @return {number}
+             */
+            get speed() {
+                return Math.sqrt(this.vel.x **2 + this.vel.y ** 2);
+            }
+            /** Get the direction in radians as the inverse tangent of the
+             *  velocity components
+             *
+             * @return {number}
+             */
+            get direction() {
+                return Math.atan2(this.vel.y, this.vel.x);
+            }
+
 
             /** Set the radius, making sure that the bounds are updated
              *  accordingly
@@ -183,15 +195,15 @@
                 this.pos._y = y;
             }
 
-            /** Set the peed, with necessary updates to the x- and y-
+            /** Set the speed, with necessary updates to the x- and y-
              *  velocity components
              *
              * @param {number} speed - scalar speed (px/s)
              */
             setSpeed(speed) {
-                this._speed = speed;
-                this.vel._x = speed*Math.cos(this._direction);
-                this.vel._y = speed*Math.sin(this._direction);
+                let dir = this.direction;
+                this.vel._x = speed * Math.cos(dir);
+                this.vel._y = speed * Math.sin(dir);
             }
             /** Set the direction of motion, with necessary updates to the x-
              *  and y- velocity components
@@ -199,9 +211,9 @@
              * @param {number} dir - direction (radians)
              */
             setDirection(dir) {
-                this._direction = dir;
-                this.vel._x = this._speed*Math.cos(dir);
-                this.vel._y = this._speed*Math.sin(dir);
+                let speed = this.speed;
+                this.vel._x = speed * Math.cos(dir);
+                this.vel._y = speed * Math.sin(dir);
             }
 
             /** Respond to a "hit" event as if a spring were placed at the event
@@ -308,8 +320,8 @@
                 let speed = Math.sqrt(vx1 ** 2 + vy1 **2);
                 // this.illustrateMotion({x: ev.clientX, y: ev.clientY},
                 //     {x: dx, y: dy, u: du, v: dv, net: distance},
-                //     {x: vx0, y: vy0, u: vu, v: vv, net: this._speed, dir:
-                //         this._direction},
+                //     {x: vx0, y: vy0, u: vu, v: vv, net: this.speed, dir:
+                //         this.direction},
                 //     {x: vx1, y: vy1, u: vu, v: vv1, net: speed, dir: dir},
                 //     {t: theta, p: phi});
                 this.setDirection(dir);
@@ -368,14 +380,14 @@
             advance(dt) {
 
                 //  Simulate friction by gradually slowing the dot's motion
-                let newSpeed = this._speed - (FRICTION_COEFFICIENT * this._speed);
+                let newSpeed = this.speed - (FRICTION_COEFFICIENT * this.speed);
 
                 //  Simulate gravity by accelerating the dot in the appropriate
                 //  direction
                 if(window.gravity.x !== 0 || window.gravity.y !== 0) {
                     let components = [
-                        newSpeed * Math.cos(this._direction),
-                        newSpeed * Math.sin(this._direction)
+                        newSpeed * Math.cos(this.direction),
+                        newSpeed * Math.sin(this.direction)
                     ];
 
                     components = [
@@ -666,7 +678,7 @@
             //  its speed is zero (re-started when the dot is hit() and thereby
             //  set into motion again)
             window.dot.advance(frameTime);
-            if(dot._speed === 0 || Number.isNaN(dot._speed)) {
+            if(dot.speed === 0 || Number.isNaN(dot.speed)) {
                 window.cancelAnimationFrame(window.frameRequest);
             }
 
