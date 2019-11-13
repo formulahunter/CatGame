@@ -32,7 +32,7 @@
          *
          * @type {number}
          */
-        const TOUCH_ACCURACY = 100;
+        const TOUCH_ACCURACY = 250;
         /** Dot size (px)
          * May be used along with touch accuracy to tailor the game for more
          * or less coordinated cats
@@ -55,13 +55,25 @@
          *
          * @type {number}
          */
-        const MAXIMUM_SPEED = 5000;
+        const MAXIMUM_SPEED = 8000;
         /** Friction configuration - factor used to adjust speed for each frame
          * Slows the dot after it is hit
          *
          * @type {number}
          */
         const FRICTION_COEFFICIENT = 0.01;
+        /** The gravity coefficient controls the "strength" of the gravitational
+         * force pulling the dot in the x- and y-direction
+         *
+         * @type {{x: number, y: number}}
+         */
+        const GRAVITY_COEFFICIENT = {x: 0, y: 1};
+        /** Enables the device orientation to determine the direction of the
+         * gravity force, rather than its default at the bottom of the screen
+         *
+         * @type {boolean}
+         */
+        const VARIABLE_GRAVITY = false;
 
         /* *********    APPEARANCE    ************/
 
@@ -355,8 +367,26 @@
              */
             advance(dt) {
 
-                //  Simulate "friction" by gradually slowing the dot's motion
+                //  Simulate friction by gradually slowing the dot's motion
                 let newSpeed = this._speed - (FRICTION_COEFFICIENT * this._speed);
+
+                //  Simulate gravity by accelerating the dot in the appropriate
+                //  direction
+                if(window.gravity.x !== 0 || window.gravity.y !== 0) {
+                    let components = [
+                        newSpeed * Math.cos(this._direction),
+                        newSpeed * Math.sin(this._direction)
+                    ];
+
+                    components = [
+                        components[0] - window.gravity.x * 30,
+                        components[1] + window.gravity.y * 30
+                    ];
+                    newSpeed = Math.sqrt(components[0] ** 2 +
+                        components[1] ** 2);
+                    this.setDirection(Math.atan2(components[1], components[0]));
+                }
+
                 //  Keep speed within configured limits
                 if(newSpeed > MAXIMUM_SPEED) {
                     newSpeed = MAXIMUM_SPEED;
@@ -389,6 +419,13 @@
                 //  Check the y-bounds (min and max) and, if exceeded, "bounce"
                 //  off of the bound and re-calculate `y1` by interpolating `dy`
                 if(y1 > this.bounds.y.max) {
+                    //  Check which way gravity is pulling
+                    if(window.gravity.y > 0) {
+                        //  Gravity is pulling the dot toward this wall
+                        //  So if the dot's speed is below some threshold, bring
+                        //  it to rest by setting its y-speed to 0 and its
+                        //  y-position to the bounds.y.max
+                    }
                     let p = (y1 - this.bounds.y.max) / dy;
                     y1 = this.bounds.y.max - dy * (1 - p);
                     this.bounce('y');
@@ -629,7 +666,7 @@
             //  its speed is zero (re-started when the dot is hit() and thereby
             //  set into motion again)
             window.dot.advance(frameTime);
-            if(dot._speed === 0) {
+            if(dot._speed === 0 || Number.isNaN(dot._speed)) {
                 window.cancelAnimationFrame(window.frameRequest);
             }
 
@@ -689,6 +726,22 @@
 
             canvas.addEventListener('mousedown',
                 window.dot.hit.bind(window.dot));
+
+            window.gravity = {
+                x: GRAVITY_COEFFICIENT.x,
+                y: GRAVITY_COEFFICIENT.y
+            };
+            if(VARIABLE_GRAVITY === true) {
+                console.debug('set event listener');
+                window.addEventListener('devicemotion', ev => {
+                    console.debug('gravity coeffs');
+                    let x = ev.accelerationIncludingGravity.x;
+                    let y = ev.accelerationIncludingGravity.y;
+
+                    let magnitude = Math.sqrt((x ** 2) + (y ** 2));
+                    window.gravity = {x: x / magnitude, y: y / magnitude};
+                });
+            }
 
             window.lastFrame = performance.now();
             window.frameRequest = window.requestAnimationFrame(animate);
